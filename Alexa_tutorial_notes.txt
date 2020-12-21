@@ -1,0 +1,271 @@
+Note - i'm assuming you have any programming knowlage, and none alexa experience if you have you can any you can jump stright to point 7, just do step 3 before.
+We are going to use js, it's basic syntax is quite similar to c++, python or java, so you should be able to understand it easily if you now any object oriented language.
+Yes, alexa support python but lack of materials compared to js make's learning alexa in that language easier.
+
+0. Intro
+	Alexa 'programs' are named skills, and it's functionalities intents.
+	Detection of user intent to use intent from particular skill is done by amazon for us.
+	<todo> better explanation, or link to amazon resources from youtube over there</todo>
+
+1. Create new skill
+2. Change invocation name. E.g use "notification bot"
+
+3. Enable Tools>Permissions>Remainders
+
+4. For easier use change index.js:
+	4.1 Change speakout in LaunchRequestHandler to something unique so you can easier recognize when your skill was launched, sometimes alexa can launch other use skill if invocation name is same
+	4.2 Change Error handler so alexa will speak your error aloud.
+		<code>const speakOutput = `Error encountered: ${error}`;</code>
+		If you are not native js developer note usage of ` instead ' there. This allows to use ${} inside to inject variable into string.
+
+5. Create new file intents.js (we want to have our intents in saparate place for cleaner code)
+	4.2 Import in index.js file:
+		<code>const intents=require('intents.js')</code>
+
+6. Intent creation:
+	6.1 Import alexa to your 'intents.js' file: <code>const Alexa = require('ask-sdk-core');</code>
+	6.2 Create your intent code:
+		<code>
+			const SetupRemainderIntent = {
+				canHandle(handlerInput) {
+					return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+						&& Alexa.getIntentName(handlerInput.requestEnvelope) === 'SetupRemainderIntent';
+				},
+				handle(handlerInput) {
+					return handlerInput.responseBuilder
+						.speak("Your custom intent invoced!!")
+						.getResponse();
+					}
+				};
+		</code>
+
+		canHandle is method for checking if user wanted to use specyfic intent.
+		Inside first we are cheking if it's custom remainder, next line is for cheking which one was invoced.
+		Code inside handle method is to make alexa speak back something to us.
+		6.2.2 Make it public(visible from outside of file), add
+			<code>module.exports={
+    			SetupRemainderIntent,
+			};</code>
+			at very and of file.
+	6.4 Add intent to your skill, in index.js add intents.setupRemainderIntent in "addRequestHandlers(...)" at very end of this file. You will want to put it as the first intent otherwise other inents(espessialy IntentReflector) will invoce insted of cutom one. you should have something like this:
+		<code>
+		exports.handler = Alexa.SkillBuilders.custom()
+			.addRequestHandlers(
+				Intents.setupRemainderIntent,
+				LaunchRequestHandler,
+				HelloWorldIntentHandler,
+				HelpIntentHandler,
+				CancelAndStopIntentHandler,[...]
+		</code>
+	6.5 Save all and deploy
+	6.6 Creation of new intent:
+		6.6.1 Go back to Build tab, select interaction_model>intents>addIntent
+				Name it same as specyfied in canHandle method, in our case it's "SetupRemainderIntent"
+		6.6.2 Inset sample utterences, it's what user need to say to launch our intent. E.g "setup remainder"
+		6.6.3 Save, build model.
+	6.7 Test: It should be able to say something to us, go to test tab, switch to development mode in skill testing, or use your alexa device(if you are logged in same account there and in devel console)
+		6.7.2 type/say "open notification bot" or what ever name you given it in step 2. You should hear custom resonse from step 4.1 if not something is wrong. You can always check log's, there are accesible thru link in code tab, just above your code view.
+		6.7.3 type your sample utterance, if it's saying "Your custom ...." good, if "You just triggered <yourIntetntName>" something is wrong in can handle method, propably misspeled intent name, or you intents is not added to intents list in skill builder(point 6.4)
+		if you are not alexa user remember to say exit or something like that otherwise alexa will be in response to that particular intents, if you are alexa user it should be obvius to you.
+7. Notification creation:
+	7.1 First we need to enable remainders api. To do so you need to change main skill handler a little bit. You need to add <code>.withApiClient(new Alexa.DefaultApiClient())</code> to SkillBuilder setup in index.js file. It should look like this now:
+		<code>
+		exports.handler = Alexa.SkillBuilders.custom()
+    		.addRequestHandlers(
+        		Intents.SetupRemainderIntent,
+        		LaunchRequestHandler,
+        		HelloWorldIntentHandler,
+        		HelpIntentHandler,
+        		CancelAndStopIntentHandler,
+        		FallbackIntentHandler,
+        		SessionEndedRequestHandler,
+        		IntentReflectorHandler)
+    		.addErrorHandlers(ErrorHandler)
+    		.withApiClient(new Alexa.DefaultApiClient())
+    		.withCustomUserAgent('sample/hello-world/v1.2')
+    		.lambda();
+    	</code>
+	7.2 Change handle method insite intents.js:
+		First we are going to check if user given required permissions to us:
+		<code>async handle(handlerInput) {
+			const {attributesManager, serviceClientFactory, requestEnvelope} = handlerInput;
+			const sessionAttributes = attributesManager.getSessionAttributes();
+			const {intent} = requestEnvelope.request;
+			
+			const {permissions} = requestEnvelope.context.System.user;
+			if (!(permissions && permissions.consentToken)){
+				return handlerInput.responseBuilder
+					.speak("Please allow me to send notifications.")
+					.getResponse();
+			}
+			
+			return handlerInput.responseBuilder
+				.speak("Your custom intent invoced!!")
+				.getResponse();
+		}</<code>
+		Note usage of async before method declaration, it will allow as to use "await" later.
+		First 3 lines are just to extract required objects from handler input
+		Next we are optaining user permissions menager, checking if it's valid and than checking for remainder permission. If not given ask user to enable it. First invocation response is still there we will deal with it leater.
+
+		Now we are going to set remainder:
+		<code>
+		const reminderServiceClient = serviceClientFactory.getReminderManagementServiceClient();
+		
+		const reminderData = {
+			trigger: {
+				type: "SCHEDULED_RELATIVE",
+				offsetInSeconds: "15",
+			},
+			alertInfo: {
+				spokenInfo: {
+					content: [{
+						locale: "en-US",
+						text: "Your notification message.",
+						ssml: "<speak>Your notification voice.</speak>"
+					}],
+				},
+			},
+			pushNotification: {
+				status: "ENABLED"
+			}
+		};
+		
+		await reminderServiceClient.createReminder(reminderData);
+		
+		return handlerInput.responseBuilder
+			.speak("Rameinder set, will invoce in 15s!!")
+			.getResponse();
+		</code>
+
+		First line over there is to get object allowing us to setup remainder. Note that if user have not allowed to set remainder by your skill this step is going to throw error, this is why we need to check it earlier.
+		Our remainderData constant holds all data for remainder, trigger is responsible choosing moment of it, I'll say more about it later.
+		alertInfo and it's content describe our notification. locale by default is not used but might get handy when you want to made your skill accessible in more than one language. text is message of notification, and ssml (speech synthesis markup language) is for speech divices to speak your notification aloud.
+		pushNotification If it is ENABLED, a phone receives a push notification when the reminder goes off.
+		The last new line is to register our notification. Noto use of await there, it's becouse createRemainder method is asynchronus(like ours beacouse async before declaration), and it is invoced in parallel so waiting for it is good idea, at least for testing alexa-gives more usefull error messages when that is done.
+	7.2 Now you can test it, but this time you need to use alexa device - simulator from devel console do not support remainders. If you do not have one install phone app, it's working for me.
+		First say "open notification bot", and next "setup remainder", alexa first should ask you about permission for remainders, it's in skill settings, enable it.
+		Now say "setup remainder" again, after 15s alexa should trigger notification.
+8. Scheduling notification to certain hour.
+	8.1 First we are going to adjust our Intent inside interaction model. You have to add sample utterences with slots for time, i'm going to use hour, minute to get time.<todo>decide if give detailed explenation there or just give a link to external resource with slots description</code>
+	I've setupped follwed utterences:
+		Setup notification at {minute} {afterbefore} {hour}
+		Setup notification at {hour} o'clock
+		Setup notification
+		Setup remainder
+		Setup remainder at {minute} {afterbefore} {hour}
+		Setup remainder at {hour} o'clock
+
+		Where minute and hour are number slots with range checks(hour 0-24, minute 0-59).
+		And afterbefore has custom type with values "after" and "before" to determine if user want to setup notification before or after certain hour as is usual spoken in english.
+		Note that I'm assuming 24 hour system for simplicity, otherwise we would have to get also if it's or am/pm and handle it correctly.
+	8.2 Add moment-timezone to our project. Alexa skills use it for operations on time. Docs of it are there https://momentjs.com/timezone/docs/
+		To use it you need to add it to dependecies list in package.json file  <code>"moment-timezone": "^0.5.23"</code>
+	8.3 New code look's like this:
+		<code>
+		async handle(handlerInput) {
+	        const {attributesManager, serviceClientFactory, requestEnvelope} = handlerInput;
+	        const sessionAttributes = attributesManager.getSessionAttributes();
+	        const {intent} = requestEnvelope.request;
+	        
+	        const {permissions} = requestEnvelope.context.System.user;
+	        if (!(permissions && permissions.consentToken)){
+	            return handlerInput.responseBuilder
+	                .speak("Please allow me to send notifications.")
+	                .getResponse();
+	        }
+	        const reminderServiceClient = serviceClientFactory.getReminderManagementServiceClient();
+	        
+	        let hourslot = Alexa.getSlot(requestEnvelope, 'hour');
+	        let minuteslot = Alexa.getSlot(requestEnvelope, 'minute');
+	        let afterslot = Alexa.getSlot(requestEnvelope, 'afterbefore')
+	        
+	        let reminderData;
+	        let speakout;
+	        if(hourslot.value){
+	            const hour=hourslot.value;
+	            let minute=minuteslot.value?minuteslot.value:0;
+	            
+	            const today = moment();
+	            
+	            let when=moment();
+	            when.hour(hour);
+	            
+	            when.minute(0);
+	            if(afterslot.value&&afterslot.value==='before')
+	                when.subtract(minute,'minutes');
+	            else
+	                when.add(minute,'minutes');
+	            
+	            if (when.isBefore(today)){          //adding remainder in the past leads to error^[cititation needed]
+	                when.add(1,'days');
+	            }
+	            const message="Your notification";
+	            
+	            reminderData = {
+	                trigger: {
+	                    type: 'SCHEDULED_ABSOLUTE',
+	                    scheduledTime: when.format('YYYY-MM-DDTHH:mm:00.000')
+	                },
+	                alertInfo: {
+	                    spokenInfo: {
+	                        content: [{
+	                            locale: "en-US",
+	                            text: message,
+	                            ssml: `<speak>${message}</speak>`
+	                        }],
+	                    },
+	                },
+	                pushNotification: {
+	                    status: "ENABLED"
+	                }
+	            };
+	            
+	            if(minuteslot.value)
+	                speakout=`Remainder set at ${minute} ${afterslot.value} ${hour}`;
+	            else
+	                speakout=`Remainder set at ${hour} o'clock`;
+	        } else {
+	            reminderData = {
+	                trigger: {
+	                    type: "SCHEDULED_RELATIVE",
+	                    offsetInSeconds: "15",
+	                },
+	                alertInfo: {
+	                    spokenInfo: {
+	                        content: [{
+	                            locale: "en-US",
+	                            text: "Your notification message.",
+	                            ssml: "<speak>Your notification voice.</speak>"
+	                        }],
+	                    },
+	                },
+	                pushNotification: {
+	                    status: "ENABLED"
+	                }
+	            };
+	            speakout="Rameinder set, it will fire in 15 seconds!!";
+	        }
+	        
+	        await reminderServiceClient.createReminder(reminderData);
+	        
+	        return handlerInput.responseBuilder
+	            .speak(speakout)
+	            .getResponse();
+	    }
+    	</code>
+    	I've added an if to check if slots with time are set, if not previus behaviour of 15s relative remainder is preserved.
+    	The most important change here is inside that if.
+
+    	let when=moment(); is to get current time and set it's hour.
+    	to setup minute we use folowing 5 lines.
+    	next we are checkinng if determined day is before current moment. It can heppend if you want to set up remainder at 11 on afternoon.
+
+    	remainderData alertInfo stays the same, only diffrend values are passed. Important thing to note is trigger section. we have changed it's type to 'SCHEDULED_ABSOLUTE', and next set time with moment-timezone time object formatted as string.
+    8.4 Now you can test it.
+    	open your skill (open notification bot), and order it to make reaminder (setup remainder at 12 o'clock/setup remainder 5 befor 11)
+    	If it's working congrats, you have just learned how to use remainders with alexa.
+
+<todo>add summary</todo>
+<todo>note somewhere about randomly not working push notification</todo>
+For further info about remainderData paremeters e.g. time zone or reccuring alert you can look at docks in following link:
+https://developer.amazon.com/blogs/alexa/post/2b4de691-9cad-4c82-86e0-98e674786742/integrate-the-reminders-api-with-your-skill-to-deepen-customer-engagement1

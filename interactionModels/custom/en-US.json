@@ -1,0 +1,194 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "notification bot",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "HelloWorldIntent",
+          "slots": [],
+          "samples": [
+            "hello",
+            "how are you",
+            "say hi world",
+            "say hi",
+            "hi",
+            "say hello world",
+            "say hello"
+          ]
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "SetupRemainderIntent",
+          "slots": [
+            {
+              "name": "hour",
+              "type": "AMAZON.NUMBER"
+            },
+            {
+              "name": "minute",
+              "type": "AMAZON.NUMBER"
+            },
+            {
+              "name": "afterbefore",
+              "type": "afterbefore"
+            }
+          ],
+          "samples": [
+            "Setup notification at {minute} {afterbefore} {hour}",
+            "Setup notification at {hour} o\u0027clock",
+            "Setup notification",
+            "Setup remainder",
+            "Setup remainder at {minute} {afterbefore} {hour}",
+            "Setup remainder at {hour} o\u0027clock"
+          ]
+        }
+      ],
+      "types": [
+        {
+          "values": [
+            {
+              "name": {
+                "value": "before"
+              }
+            },
+            {
+              "name": {
+                "value": "after"
+              }
+            }
+          ],
+          "name": "afterbefore"
+        }
+      ],
+      "modelConfiguration": {
+        "fallbackIntentSensitivity": {
+          "level": "LOW"
+        }
+      }
+    },
+    "dialog": {
+      "intents": [
+        {
+          "name": "SetupRemainderIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "hour",
+              "type": "AMAZON.NUMBER",
+              "elicitationRequired": false,
+              "confirmationRequired": false,
+              "prompts": {},
+              "validations": [
+                {
+                  "type": "isLessThanOrEqualTo",
+                  "prompt": "Slot.Validation.222726151137.1553940643281.97464365705",
+                  "value": "24"
+                },
+                {
+                  "type": "isGreaterThanOrEqualTo",
+                  "prompt": "Slot.Validation.222726151137.1553940643281.475699699858",
+                  "value": "0"
+                }
+              ]
+            },
+            {
+              "name": "minute",
+              "type": "AMAZON.NUMBER",
+              "elicitationRequired": false,
+              "confirmationRequired": false,
+              "prompts": {},
+              "validations": [
+                {
+                  "type": "isLessThanOrEqualTo",
+                  "prompt": "Slot.Validation.222726151137.340733560144.1566990785841",
+                  "value": "59"
+                },
+                {
+                  "type": "isGreaterThanOrEqualTo",
+                  "prompt": "Slot.Validation.222726151137.340733560144.1122365669748",
+                  "value": "0"
+                }
+              ]
+            },
+            {
+              "name": "afterbefore",
+              "type": "afterbefore",
+              "elicitationRequired": false,
+              "confirmationRequired": false,
+              "prompts": {}
+            }
+          ]
+        }
+      ],
+      "delegationStrategy": "ALWAYS"
+    },
+    "prompts": [
+      {
+        "id": "Elicit.Slot.222726151137.1553940643281",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "At what hour?"
+          }
+        ]
+      },
+      {
+        "id": "Slot.Validation.222726151137.1553940643281.97464365705",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "The {hour} is to big, can you repeat it?"
+          }
+        ]
+      },
+      {
+        "id": "Slot.Validation.222726151137.1553940643281.475699699858",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "The {hour} is to negative, can you repeat it?"
+          }
+        ]
+      },
+      {
+        "id": "Slot.Validation.222726151137.340733560144.1566990785841",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "{minute} is illegal amount of minotes, please give another one?"
+          }
+        ]
+      },
+      {
+        "id": "Slot.Validation.222726151137.340733560144.1122365669748",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "You have given negative amount of minutes Seariusly, please give another minute."
+          }
+        ]
+      }
+    ]
+  },
+  "version": "19"
+}
